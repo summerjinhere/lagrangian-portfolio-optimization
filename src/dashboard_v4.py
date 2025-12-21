@@ -97,7 +97,7 @@ def run_backtest_cached(
     hmm_n_states, rebalance_freq,
     # New Features
     benchmark_ticker, market_proxy_ticker, start_date, end_date,
-    run_mc=False, mdd_target=0.15, n_trials=50, use_rolling=False
+    run_mc=False, mdd_target=0.15, n_trials=50
 ):
     """Run backtest (or Monte Carlo) with caching."""
     
@@ -119,8 +119,7 @@ def run_backtest_cached(
         start_date=str(start_date) if start_date else None,
         end_date=str(end_date) if end_date else None,
         mdd_target=mdd_target,
-        n_trials=n_trials,
-        use_rolling=use_rolling
+        n_trials=n_trials
     )
     
     returns = load_data()
@@ -130,28 +129,16 @@ def run_backtest_cached(
     # Execute
     if run_mc:
         mc_opt = MonteCarloOptimizer(config)
-        
-        if use_rolling:
-            # Rolling Walk-Forward (Returns full result dict directly)
-            with st.spinner("Running Rolling Walk-Forward Optimization... (This may take a minute)"):
-                results = mc_opt.optimize_rolling(returns, train_years=3, test_years=1, verbose=True)
-        else:
-            # Simple Global Search
-            best_config, mc_results = mc_opt.optimize(returns, verbose=True)
-            # Run final backtest with best config
-            backtester = EnhancedWalkForwardBacktester(best_config)
-            results = backtester.run(
-                returns=returns,
-                market_col=market_proxy_ticker,
-                sentiment_file='real_sentiment_data.csv',
-                verbose=False
-            )
-            results['mc_results'] = mc_results # Attach MC results
+        best_config, mc_results = mc_opt.optimize(returns, market_col=market_proxy_ticker, verbose=True)
+        # Run final backtest with best config
+        backtester = EnhancedWalkForwardBacktester(best_config)
+        results = backtester.run(returns, market_col=market_proxy_ticker, sentiment_file='real_sentiment_data.csv', verbose=False)
+        results['mc_results'] = mc_results # Attach MC results
     else:
         backtester = EnhancedWalkForwardBacktester(config)
         results = backtester.run(
             returns=returns,
-            market_col=market_proxy_ticker,
+            market_col=market_proxy_ticker,  # beta/regime market proxy
             sentiment_file='real_sentiment_data.csv',
             verbose=False
         )
@@ -206,22 +193,25 @@ def render_sidebar():
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🆕 Backtest Control")
-    
-    # Benchmark
-    # Market Proxy (for Beta/Signal)
-    market_proxy_ticker = st.sidebar.selectbox(
-        "Market Proxy (Beta/HMM)", 
-        ['SPY', 'QQQ', 'IWM', 'DIA'], 
-        index=0,
-        help="Used for Regime Detection and Beta Hedging"
+    # Benchmark (evaluation only)
+    benchmark_choices = [
+        'SPY', 'VTI', 'QQQ', 'IWM', 'DIA',
+        'EFA', 'EEM', 'AGG', 'TLT', 'HYG',
+        'GLD', 'USO',
+        'XLK', 'XLF', 'XLE', 'XLV', 'XLI'
+    ]
+    benchmark_ticker = st.sidebar.selectbox(
+        "Benchmark (evaluation)",
+        benchmark_choices,
+        index=0
     )
 
-    # Benchmark (for Comparison)
-    benchmark_ticker = st.sidebar.selectbox(
-        "Benchmark (Evaluation)", 
-        ['SPY', 'QQQ', 'IWM', 'VTI', 'DIA', 'XLK', 'XLF', 'XLE', 'XLV', 'EFA', 'EEM'], 
-        index=0,
-        help="Used for Alpha calculation and performance comparison"
+    # Market proxy (used for Kalman β_t and HMM regime features)
+    market_proxy_choices = ['SPY', 'VTI', 'QQQ']
+    market_proxy_ticker = st.sidebar.selectbox(
+        "Market Proxy (beta / regime)",
+        market_proxy_choices,
+        index=0
     )
     
     # Dates
@@ -237,9 +227,6 @@ def render_sidebar():
     if run_mc:
         mdd_target = st.sidebar.slider("Target Max Drawdown", 0.05, 0.30, 0.15, 0.01)
         n_trials = st.sidebar.slider("Number of Trials", 10, 200, 20, 10)
-        use_rolling = st.sidebar.checkbox("Use Rolling Walk-Forward (Robust)", value=True, help="Avoids look-ahead bias by tuning on past windows only.")
-    else:
-        use_rolling = False
     
     return {
         'use_regime': use_regime,
@@ -252,14 +239,13 @@ def render_sidebar():
         'max_position': max_position,
         'hmm_n_states': hmm_n_states,
         'rebalance_freq': rebalance_freq,
-        'market_proxy_ticker': market_proxy_ticker,
         'benchmark_ticker': benchmark_ticker,
+        'market_proxy_ticker': market_proxy_ticker,
         'start_date': start_date,
         'end_date': end_date,
         'run_mc': run_mc,
         'mdd_target': mdd_target,
-        'n_trials': n_trials,
-        'use_rolling': use_rolling
+        'n_trials': n_trials
     }
 
 
@@ -741,7 +727,13 @@ def main():
             st.markdown("### Current Sector Allocation")
             latest = results['weights_history'][-1]['weights']
             
-            sector_map = EnhancedWalkForwardBacktester.default_sector_map()
+            sector_map = {
+                'AAPL': 'Tech', 'MSFT': 'Tech', 'GOOGL': 'Tech', 'META': 'Tech', 'NVDA': 'Tech',
+                'AMZN': 'Consumer', 'TSLA': 'Consumer', 'HD': 'Consumer',
+                'JPM': 'Finance', 'BAC': 'Finance', 'GS': 'Finance',
+                'JNJ': 'Health', 'UNH': 'Health', 'PFE': 'Health',
+                'XOM': 'Energy', 'CVX': 'Energy',
+            }
             
             sector_w = {}
             for ticker, w in latest.items():
