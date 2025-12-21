@@ -1,246 +1,71 @@
-# Lagrangian Portfolio Optimization v2
+# Enhanced Portfolio Optimization Model (v4)
 
-## Multi-Layer Portfolio Optimization with Lagrangian Theoretical Framework
+## Features
 
-This repository contains an integrated portfolio optimization model combining empirically validated components with rigorous theoretical justification for academic presentation.
+### 1. HMM Regime Detection
+- 4 market regimes: Low/High Vol × Bull/Bear
+- Regime-adaptive parameters (γ, λ_μ, λ_H, λ_T, β*)
+- Based on Hamilton (1989) regime-switching framework
 
----
+### 2. Topology Regularization
+- Graph Laplacian for sector diversification
+- Penalty: w'Lw = Σ A_ij(w_i - w_j)²
+- Encourages within-sector balance
 
-## 🎯 Key Results
-
-| Metric | Value | Significance |
-|--------|-------|--------------|
-| **Alpha (annualized)** | 20.25% | p = 0.0186 (< 0.05) ✅ |
-| **Sharpe Ratio** | 1.06 | vs SPY 0.69 (+54%) |
-| **Information Ratio** | 1.04 | Strong excess returns |
-| **Max Drawdown** | -14.16% | vs QQQ -35% |
-| **PSR** | 87.38% | High confidence |
-
----
-
-## 📁 Project Structure
-
-```
-lagrangian_portfolio_v2/
-├── enhanced_integrated_model_v2.py    # Core v2 model (validated)
-├── research_pipeline_v1.py            # Research wrapper (Fama-MacBeth, Decile)
-├── lagrangian_theoretical_framework.py # Lagrangian optimization theory
-├── integrated_pipeline.py             # Unified execution pipeline
-├── academic_analysis.py               # Academic metrics & LaTeX generation
-├── run_analysis.py                    # Main execution script
-├── real_backtest_panel.csv           # Market data
-├── real_sentiment_data.csv           # Sentiment data
-└── README.md                          # This file
-```
-
----
-
-## 🏗️ Model Architecture
-
-### Layer 1: Dynamic Factor Loading (Kalman Filter)
+### 3. Kalman Beta Hedging
 - Time-varying beta estimation
-- State-space formulation: β_t = β_{t-1} + w_t
-- Observation equation: r_t = β_t * r_m,t + v_t
+- Hedging penalty: λ_H(w'β - β*)²
+- Target beta adapts to regime
 
-### Layer 2: Sentiment Integration (FinBERT)
-- News sentiment scoring
-- Expected return adjustment
-- Decay-weighted historical sentiment
-
-### Layer 3: GARCH-MIDAS Volatility
-- Short-term GARCH(1,1) component
-- Long-term MIDAS component with beta polynomial weights
-- Combined volatility: σ²_t = τ_t * g_t
-
----
-
-## 📐 Lagrangian Framework
-
-### Optimization Problem
-
-```
-min_w  L(w) = γw'Σw - λ_μ w'μ + λ_T w'L_T w + λ_H (w'β - β*)²
-```
-
-**Subject to:**
-- w'1 = 1 (full investment)
-- w ≥ 0 (long-only)
-- w ≤ w_max (position limits)
-
-### Lagrange Multipliers
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| γ | Risk aversion | 2.0 |
-| λ_μ | Alpha seeking weight | 1.0 |
-| λ_T | Topology (sector diversification) | 0.1 |
-| λ_H | Factor hedging penalty | 0.5 |
-
-### KKT Conditions
-
-The optimal solution satisfies:
-
-```
-2γΣw* - λ_μ μ + 2λ_T L_T w* + 2λ_H (w*'β - β*)β + λ 1 + μ - ν = 0
-```
-
-With complementary slackness for position bounds.
-
----
-
-## 🚀 Quick Start
-
-### 1. Full Pipeline (Recommended)
-
-```bash
-python run_analysis.py --mode full
-```
-
-This runs:
-- Data loading and preprocessing
-- Model fitting (all 3 layers)
-- Cross-sectional analysis
-- Decile portfolio backtest
-- Statistical validation
-- Lagrangian analysis
-- Academic report generation
-
-### 2. Quick Validation
-
-```bash
-python run_analysis.py --mode quick
-```
-
-Fast validation with basic metrics only.
-
-### 3. Statistical Validation Only
-
-```bash
-python run_analysis.py --mode validate
-```
-
-Run only statistical tests on existing data.
-
----
-
-## 📊 Statistical Validation Methods
-
-### 1. HAC Standard Errors (Newey-West)
-- Accounts for autocorrelation and heteroskedasticity
-- Default lag: Andrews bandwidth
-
-### 2. Block Bootstrap
-- 1000 bootstrap samples
-- Block size: 22 days (monthly)
-- 95% confidence intervals
-
-### 3. Subperiod Analysis
-- Sample split into 4 periods
-- Check consistency across time
-
-### 4. Probabilistic Sharpe Ratio (PSR)
-- Bailey & López de Prado (2012)
-- Accounts for skewness and kurtosis
-
-### 5. Transaction Cost Sensitivity
-- Tests robustness at 0-100 bps
-
----
-
-## 📝 Academic Output
-
-### Generated Files
+## Files
 
 | File | Description |
 |------|-------------|
-| `research_report.txt` | Plain text summary |
-| `academic_report.tex` | LaTeX document |
-| `cumulative_returns.png` | Performance chart |
-| `drawdown.png` | Drawdown analysis |
-| `rolling_metrics.png` | Rolling Sharpe/Alpha |
-| `pipeline_results.pkl` | Serialized results |
+| `enhanced_model_v4.py` | Main model with HMM + Topology |
+| `dashboard_v4.py` | Streamlit interactive dashboard |
+| `simplified_model_v3.py` | Base model (v3) without HMM |
 
-### LaTeX Tables
+## Usage
 
-The `academic_analysis.py` module generates publication-ready LaTeX tables:
+### Run Backtest
+```python
+from enhanced_model_v4 import run_enhanced_backtest, EnhancedConfig
 
-- Main performance summary
-- Subperiod analysis
-- Lagrangian formulation
+config = EnhancedConfig(
+    use_regime_detection=True,
+    use_topology=True,
+    lambda_hedge=0.5,
+    lambda_topology=0.1
+)
 
----
+results = run_enhanced_backtest(config=config, verbose=True)
+```
 
-## 🔬 Theoretical Contribution
+### Run Dashboard
+```bash
+pip install streamlit plotly hmmlearn
+streamlit run dashboard_v4.py
+```
 
-### Connection between v2 Model and Lagrangian Framework
+## Regime Parameters
 
-1. **Kalman Beta → Factor Hedging Term**
-   - Dynamic betas inform the hedging penalty λ_H (w'β - β*)²
+| Regime | γ | λ_μ | λ_H | λ_T | β* | Max Pos |
+|--------|---|-----|-----|-----|----|----|
+| Low Vol Bull | 1.5 | 1.5 | 0.3 | 0.05 | 1.1 | 20% |
+| High Vol Bull | 2.5 | 1.0 | 0.6 | 0.15 | 1.0 | 15% |
+| Low Vol Bear | 3.0 | 0.5 | 0.8 | 0.20 | 0.8 | 12% |
+| High Vol Bear | 4.0 | 0.3 | 1.2 | 0.30 | 0.6 | 10% |
 
-2. **GARCH-MIDAS → Covariance Matrix**
-   - Time-varying volatility provides realistic Σ estimation
+## Results (Default Config)
 
-3. **FinBERT Sentiment → Expected Returns**
-   - Sentiment adjusts μ in the return maximization term
+- **Alpha**: 3.98% (p < 0.0001) ✅
+- **Sharpe**: 0.761
+- **Beta**: 0.77
+- **Max DD**: -35.52%
 
-4. **Regime Detection → Adaptive λ Parameters**
-   - HMM regimes determine optimal λ_μ, λ_T, λ_H values
+## Academic References
 
----
-
-## 📈 Duke Professor Defense Points
-
-### 1. Statistical Significance ✅
-- Alpha p-value = 0.0186 < 0.05
-- HAC standard errors account for autocorrelation
-- Bootstrap CI excludes zero
-
-### 2. Economic Significance ✅
-- Alpha > 15% annualized
-- Sharpe ratio improvement of 54% over SPY
-- Consistent across market regimes
-
-### 3. Robustness ✅
-- Positive Sharpe in all subperiods
-- Survives transaction costs up to 50 bps
-- Stable rolling metrics
-
-### 4. Theoretical Foundation ✅
-- Lagrangian framework provides mathematical rigor
-- KKT conditions for optimality
-- Sensitivity analysis for parameter stability
-
-### 5. Risk Management ✅
-- Max drawdown -14.16% (vs -35% for tech benchmark)
-- Regime-adaptive parameters
-- Position limits for diversification
-
----
-
-## ⚠️ Known Limitations
-
-1. **R² = 0.06**: Low explanatory power (expected for alpha strategies)
-2. **PSR = 87.38%**: Below 95% threshold (need more data)
-3. **Regime 3,4 samples**: Limited crisis/recovery observations
-
----
-
-## 📚 References
-
-1. Bailey, D. H., & López de Prado, M. (2012). The Sharpe ratio efficient frontier.
-2. Engle, R. F., Ghysels, E., & Sohn, B. (2013). Stock market volatility and macroeconomic fundamentals.
-3. Fama, E. F., & MacBeth, J. D. (1973). Risk, return, and equilibrium: Empirical tests.
-4. Jobson, J. D., & Korkie, B. M. (1981). Performance hypothesis testing with the Sharpe and Treynor measures.
-5. Memmel, C. (2003). Performance hypothesis testing with the Sharpe ratio.
-6. Newey, W. K., & West, K. D. (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix.
-
----
-
-## 📧 Contact
-
-AI Finance Research  
-December 2025
-
----
-
-*This model is for research purposes. Past performance does not guarantee future results.*
+1. Hamilton, J.D. (1989). Regime Switching Models. Econometrica.
+2. Ang & Bekaert (2002). Regime Switches in Interest Rates.
+3. Ledoit & Wolf (2004). Shrinkage Covariance Estimation.
+4. DeMiguel et al. (2009). Portfolio Regularization.
